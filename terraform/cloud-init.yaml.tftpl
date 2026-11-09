@@ -1,0 +1,60 @@
+#cloud-config
+package_update: true
+packages:
+  - openjdk-21-jdk-headless   # JDK (not JRE) so jcmd/jfr/jstat are available for profiling
+  - linux-tools-generic       # perf
+  - sysstat
+  - numactl
+  - htop
+
+write_files:
+  # Kernel/network tuning for UDP/TCP latency and burst absorption
+  - path: /etc/sysctl.d/99-lowlatency.conf
+    content: |
+      net.core.rmem_max = 16777216
+      net.core.wmem_max = 16777216
+      net.core.netdev_max_backlog = 250000
+      net.ipv4.tcp_low_latency = 1
+      net.ipv4.tcp_slow_start_after_idle = 0
+      vm.swappiness = 1
+
+  - path: /etc/systemd/system/lowlatency.service
+    content: |
+      [Unit]
+      Description=lowlatency-java
+      After=network-online.target
+      ConditionPathExists=/opt/lowlatency/app.jar
+      Wants=network-online.target
+
+      [Service]
+      User=${admin_username}
+      WorkingDirectory=/opt/lowlatency
+      %{ if isolated_cpus != "" }
+      CPUAffinity=${isolated_cpus}
+      %{ endif }
+      Environment=JAVA_OPTS=-Xms${jvm_heap} -Xmx${jvm_heap} -XX:+AlwaysPreTouch -XX:+UseZGC -XX:+PerfDisableSharedMem -XX:+UnlockDiagnosticVMOptions -XX:+DebugNonSafepoints --enable-native-access=ALL-UNNAMED
+      ExecStart=/bin/sh -c 'exec java $JAVA_OPTS -Xlog:gc*=info:file=/var/log/lowlatency/gc.log:time,uptime,level,tags -Xlog:safepoint*=info:file=/var/log/lowlatency/safepoint.log:time,uptime -cp /opt/lowlatency/app.jar io.example.ll.Main 500000'
+      Restart=on-failure
+      LimitMEMLOCK=infinity
+      LimitNOFILE=1048576
+      Nice=-10
+
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  - sysctl --system
+  - mkdir -p /opt/lowlatency /var/log/lowlatency
+  - chown ${admin_username}:${admin_username} /opt/lowlatency /var/log/lowlatency
+  - systemctl daemon-reload
+  # The service is enabled but not started until you upload /opt/lowlatency/app.jar (scripts/deploy-azure.sh)
+  - systemctl enable lowlatency.service
+%{ if isolated_cpus != "" }
+  - echo 'GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT isolcpus=${isolated_cpus} nohz_full=${isolated_cpus} rcu_nocbs=${isolated_cpus}"' > /etc/default/grub.d/99-isolcpus.cfg
+  - update-grub
+
+power_state:
+  mode: reboot
+  message: "Rebooting to apply CPU isolation"
+  condition: true
+%{ endif }

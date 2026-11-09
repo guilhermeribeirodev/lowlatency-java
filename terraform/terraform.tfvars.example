@@ -1,0 +1,7 @@
+# cp terraform.tfvars.example terraform.tfvars   (terraform.tfvars is git-ignored)
+subscription_id  = "00000000-0000-0000-0000-000000000000"
+location         = "uksouth"
+vm_size          = "Standard_D8s_v5"
+ssh_allowed_cidr = "203.0.113.10/32"   # your IP
+app_allowed_cidr = "203.0.113.0/24"    # who may reach the service
+# isolated_cpus  = "2-3"               # optional: isolate + pin (reboots once on first boot)

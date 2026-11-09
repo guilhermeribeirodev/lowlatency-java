@@ -1,0 +1,10 @@
+target/
+logs/
+profiles/
+native/build/
+*.jfr
+.idea/
+*.iml
+terraform/.terraform/
+terraform/*.tfstate*
+terraform/terraform.tfvars
