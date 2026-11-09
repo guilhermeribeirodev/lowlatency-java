@@ -4,6 +4,7 @@ Reference project template for a low-latency Core Java service. It is small on p
 package maps to one responsibility from the role description, so you can read it top to bottom
 in an hour and use it as a scaffold or interview talking-points sheet.
 
+
 | Role requirement | Where it lives |
 |---|---|
 | High-performance, low-latency Core Java | `core/SpscLongRingBuffer`, `core/IdleStrategy` |
